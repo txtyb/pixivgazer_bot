@@ -28,7 +28,8 @@ def load_config(path):
 
 # replace some char to pass telegram api's restriction
 def replace_char(str):
-    char_to_replace = {'\\': '\\\\', '_': '\\_', '*': '\\*', '[': '\\[', ']': '\\]', '(': '\\(', ')': '\\)', '~': '\\~', '`': '\\`', '>': '\\>', '#': '\\#', '+': '\\+', '-': '\\-', '=': '\\=', '|': '\\|', '{': '\\{', '}': '\\}', '.': '\\.', '!': '\\!'}
+    char_to_replace = {'\\': '\\\\', '_': '\\_', '*': '\\*', '[': '\\[', ']': '\\]', '(': '\\(', ')': '\\)', '~': '\\~', '`': '\\`',
+                       '>': '\\>', '#': '\\#', '+': '\\+', '-': '\\-', '=': '\\=', '|': '\\|', '{': '\\{', '}': '\\}', '.': '\\.', '!': '\\!'}
     for key, value in char_to_replace.items():
         str = str.replace(key, value)
     return str
@@ -40,30 +41,32 @@ def update():
     public = api.illust_follow(restrict='public')
     private = api.illust_follow(restrict='private')
     for illust in public.illusts:
-        api.download(illust.image_urls['large'],
-                     path='tmp', name='%s.jpg' % illust.id)
-        # format tags
-        tag_caption = str()
-        for tag in illust.tags:
-            tag_caption += '[\\#%s ](https://www.pixiv.net/tags/%s/artworks)' % (
-                tag.name, tag.name)
-        caption = '[%s](https://ww.pixiv.net/artworks/%s)\n%s' % (replace_char(illust.title),
-                                                                  illust.id, tag_caption)
-        # print sending status
-        print("Sending......title: %s id: %s" % (illust.title, illust.id))
-        sendingstatus = True
-        retrytime = 0
-        sendingstatus = send_photo(os.path.join(
-            'tmp', '%s.jpg' % illust.id), c.chat_id, caption=caption)
-        # if sending failed, retry twice
-        while sendingstatus == False and retrytime <= 1:
-            retrytime += 1
-            sleep(1)
+        # check whether the pic is new
+        if os.path.exists(os.path.join('tmp', '%d.jpg')%illust.id) == False:
+            api.download(illust.image_urls['large'],
+                        path='tmp', name='%s.jpg' % illust.id)
+            # format tags
+            tag_caption = str()
+            for tag in illust.tags:
+                tag_caption += '[\\#%s ](https://www.pixiv.net/tags/%s/artworks)' % (
+                    tag.name, tag.name)
+            caption = '[%s](https://ww.pixiv.net/artworks/%s)\n%s' % (replace_char(illust.title),
+                                                                    illust.id, tag_caption)
+            # print sending status
+            print("Sending......title: %s id: %s" % (illust.title, illust.id))
+            sendingstatus = True
+            retrytime = 0
             sendingstatus = send_photo(os.path.join(
                 'tmp', '%s.jpg' % illust.id), c.chat_id, caption=caption)
-        if retrytime == 2:
-            print('illust.id: %s sending failed after 2 retrys' % illust.id)
-        sleep(1)
+            # if sending failed, retry twice
+            while sendingstatus == False and retrytime <= 1:
+                retrytime += 1
+                sleep(1)
+                sendingstatus = send_photo(os.path.join(
+                    'tmp', '%s.jpg' % illust.id), c.chat_id, caption=caption)
+            if retrytime == 2:
+                print('illust.id: %s sending failed after 2 retrys' % illust.id)
+            sleep(1)
 
 
 def send_photo(path, chat_id, caption=None):
