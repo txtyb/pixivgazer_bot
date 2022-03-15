@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import json
 from time import sleep
 from pixivpy3 import AppPixivAPI
 import os
@@ -20,6 +19,11 @@ class config:
 c = config()
 
 
+# use this to fix relative path
+def relative_path_fix(path_relative):
+    return os.path.join(os.path.dirname(__file__), path_relative)
+
+
 # load config
 def load_config(path):
     with open(path, 'r') as file:
@@ -31,15 +35,15 @@ def load_config(path):
 
 # preserving 60 pics in /tmp
 def clean_tmp():
-    pics = os.listdir('tmp')
+    pics = os.listdir(relative_path_fix('tmp'))
     if len(pics) >=59:
         # sort pics with modified time
-        pics = sorted(pics, key = lambda x:os.path.getmtime(os.path.join('tmp', x)))
+        pics = sorted(pics, key = lambda x:os.path.getmtime(os.path.join(relative_path_fix('tmp'), x)))
     else:
         return
     pics_to_del = pics[0:len(pics)-59-1]
     for pic in pics_to_del:
-        os.remove(os.path.join('tmp', pic))
+        os.remove(os.path.join(relative_path_fix('tmp'), pic))
     print('cleaned %d pics in tmp'%len(pics_to_del))
     return
 
@@ -58,9 +62,9 @@ def update(json_result):
     for illust in json_result.illusts:
         file_id = None
         # check whether the pic is new
-        if os.path.exists(os.path.join('tmp', '%d.jpg')%illust.id) == False:
+        if os.path.exists(os.path.join(relative_path_fix('tmp'), '%d.jpg')%illust.id) == False:
             api.download(illust.image_urls['large'],
-                        path='tmp', name='%s.jpg' % illust.id)
+                        path=relative_path_fix('tmp'), name='%s.jpg' % illust.id)
             # format tags
             tag_caption = str()
             for tag in illust.tags:
@@ -76,7 +80,7 @@ def update(json_result):
             for per_chat_id in c.chat_id:
                 # if file_id exist, then use it
                 if file_id != None:
-                    send_action = send_photo(os.path.join('tmp', '%s.jpg' % illust.id), per_chat_id, caption=caption, mode='with_id', file_id=file_id)
+                    send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % illust.id), per_chat_id, caption=caption, mode='with_id', file_id=file_id)
                     sendingstatus = send_action['status']
                     if sendingstatus:
                         file_id = send_action['file_id']
@@ -84,7 +88,7 @@ def update(json_result):
                     while sendingstatus == False and retrytime <= 1:
                         retrytime += 1
                         sleep(1)
-                        send_action = send_photo(os.path.join('tmp', '%s.jpg' % illust.id), per_chat_id, caption=caption)
+                        send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % illust.id), per_chat_id, caption=caption)
                         sendingstatus = send_action['status']
                         if sendingstatus:
                             file_id = send_action['file_id']
@@ -92,7 +96,7 @@ def update(json_result):
                         print('illust.id: %s sending failed after 2 retrys' % illust.id)
                     sleep(1)
                 else:
-                    send_action = send_photo(os.path.join('tmp', '%s.jpg' % illust.id), per_chat_id, caption=caption)
+                    send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % illust.id), per_chat_id, caption=caption)
                     sendingstatus = send_action['status']
                     if sendingstatus:
                         file_id = send_action['file_id']
@@ -100,7 +104,7 @@ def update(json_result):
                     while sendingstatus == False and retrytime <= 1:
                         retrytime += 1
                         sleep(1)
-                        send_action = send_photo(os.path.join('tmp', '%s.jpg' % illust.id), per_chat_id, caption=caption)
+                        send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % illust.id), per_chat_id, caption=caption)
                         sendingstatus = send_action['status']
                         if sendingstatus:
                             file_id = send_action['file_id']
@@ -158,10 +162,10 @@ def send_photo(path, chat_id, caption=None, mode='with_file', file_id=None):
 
 if __name__ == '__main__':
     # create tmp dir if not exist
-    if os.path.exists('tmp') == False:
-        os.mkdir('tmp')
+    if os.path.exists(relative_path_fix('tmp')) == False:
+        os.mkdir(relative_path_fix('tmp'))
     clean_tmp()
-    load_config('config.yaml')
+    load_config(relative_path_fix('config.yaml'))
     # login
     api.auth(refresh_token=c.pixiv_refensh_token)
     # get followed artists new pics
