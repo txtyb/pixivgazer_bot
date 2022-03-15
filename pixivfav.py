@@ -28,6 +28,21 @@ def load_config(path):
         c.pixiv_refensh_token = yaml_result['pixiv_refresh_token']
 
 
+# preserving 60 pics in /tmp
+def clean_tmp():
+    pics = os.listdir('tmp')
+    if len(pics) >=59:
+        # sort pics with modified time
+        pics = sorted(pics, key = lambda x:os.path.getmtime(os.path.join('tmp', x)))
+    else:
+        return
+    pics_to_del = pics[0:len(pics)-59-1]
+    for pic in pics_to_del:
+        os.remove(os.path.join('tmp', pic))
+    print('cleaned %d pics in tmp'%len(pics_to_del))
+    return
+
+
 # replace some char to pass telegram api's restriction
 def replace_char(str):
     char_to_replace = {'\\': '\\\\', '_': '\\_', '*': '\\*', '[': '\\[', ']': '\\]', '(': '\\(', ')': '\\)', '~': '\\~', '`': '\\`',
@@ -141,6 +156,7 @@ def send_photo(path, chat_id, caption=None, mode='with_file', file_id=None):
 
 
 if __name__ == '__main__':
+    clean_tmp()
     load_config('config.yaml')
     # login
     api.auth(refresh_token=c.pixiv_refensh_token)
