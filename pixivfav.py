@@ -1,6 +1,5 @@
 import json
 from time import sleep
-from turtle import up
 from pixivpy3 import AppPixivAPI
 import os
 import requests
