@@ -1,4 +1,6 @@
+import json
 from time import sleep
+from turtle import up
 from pixivpy3 import AppPixivAPI
 import os
 import requests
@@ -35,14 +37,8 @@ def replace_char(str):
 
 
 # main method
-def update():
-    # create tmp dir if not existed
-    if os.path.exists('tmp') == False:
-        os.mkdir('tmp')
-    # get followed artists new pics
-    public = api.illust_follow(restrict='public')
-    private = api.illust_follow(restrict='private')
-    for illust in public.illusts:
+def update(json_result):
+    for illust in json_result.illusts:
         # check whether the pic is new
         if os.path.exists(os.path.join('tmp', '%d.jpg')%illust.id) == False:
             api.download(illust.image_urls['large'],
@@ -96,4 +92,11 @@ if __name__ == '__main__':
     load_config('config.yaml')
     # login
     api.auth(refresh_token=c.pixiv_refensh_token)
-    update()
+    # create tmp dir if not exist
+    if os.path.exists('tmp') == False:
+        os.mkdir('tmp')
+    # get followed artists new pics
+    public = api.illust_follow(restrict='public')
+    private = api.illust_follow(restrict='private')
+    update(public)
+    update(private)
