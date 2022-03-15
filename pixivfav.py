@@ -46,12 +46,12 @@ def update():
         sendingstatus = send_photo(os.path.join(
             'tmp', '%s.jpg' % illust.id), c.chat_id, caption=caption)
         # if sending failed, retry twice
-        while ~sendingstatus and retrytime <= 1:
+        while sendingstatus == False and retrytime <= 1:
             retrytime += 1
             sleep(1)
             sendingstatus = send_photo(os.path.join(
                 'tmp', '%s.jpg' % illust.id), c.chat_id, caption=caption)
-        if retrytime == 3:
+        if retrytime == 2:
             print('illust.id: %s sending failed after 2 retrys' % illust.id)
         sleep(1)
 
