@@ -17,6 +17,7 @@ class config:
 c = config()
 
 
+# load config
 def load_config(path):
     with open(path, 'r') as file:
         yaml_result = yaml.load(file, Loader=yaml.FullLoader)
@@ -25,6 +26,15 @@ def load_config(path):
         c.pixiv_refensh_token = yaml_result['pixiv_refresh_token']
 
 
+# replace some char to pass telegram api's restriction
+def replace_char(str):
+    char_to_replace = {'\\': '\\\\', '_': '\\_', '*': '\\*', '[': '\\[', ']': '\\]', '(': '\\(', ')': '\\)', '~': '\\~', '`': '\\`', '>': '\\>', '#': '\\#', '+': '\\+', '-': '\\-', '=': '\\=', '|': '\\|', '{': '\\{', '}': '\\}', '.': '\\.', '!': '\\!'}
+    for key, value in char_to_replace.items():
+        str = str.replace(key, value)
+    return str
+
+
+# main method
 def update():
     # get followed artists new pics
     public = api.illust_follow(restrict='public')
@@ -37,7 +47,7 @@ def update():
         for tag in illust.tags:
             tag_caption += '[\\#%s ](https://www.pixiv.net/tags/%s/artworks)' % (
                 tag.name, tag.name)
-        caption = '[%s](https://ww.pixiv.net/artworks/%s)\n%s' % (illust.title,
+        caption = '[%s](https://ww.pixiv.net/artworks/%s)\n%s' % (replace_char(illust.title),
                                                                   illust.id, tag_caption)
         # print sending status
         print("Sending......title: %s id: %s" % (illust.title, illust.id))
