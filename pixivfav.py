@@ -1,5 +1,4 @@
 from time import sleep
-from unittest import loader
 from pixivpy3 import AppPixivAPI
 import os
 import requests
@@ -37,6 +36,9 @@ def replace_char(str):
 
 # main method
 def update():
+    # create tmp dir if not existed
+    if os.path.exists('tmp') == False:
+        os.mkdir('tmp')
     # get followed artists new pics
     public = api.illust_follow(restrict='public')
     private = api.illust_follow(restrict='private')
