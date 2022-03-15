@@ -47,8 +47,8 @@ def update(json_result):
             tag_caption = str()
             for tag in illust.tags:
                 tag_caption += '[\\#%s ](https://www.pixiv.net/tags/%s/artworks)' % (
-                    tag.name, tag.name)
-            caption = '[%s](https://ww.pixiv.net/artworks/%s)\n%s' % (replace_char(illust.title),
+                    replace_char(tag.name), replace_char(tag.name))
+            caption = '[%s](https://www.pixiv.net/artworks/%s)\n%s' % (replace_char(illust.title),
                                                                     illust.id, tag_caption)
             # print sending status
             print("Sending......title: %s id: %s" % (illust.title, illust.id))
@@ -98,5 +98,6 @@ if __name__ == '__main__':
     # get followed artists new pics
     public = api.illust_follow(restrict='public')
     private = api.illust_follow(restrict='private')
+    # update
     update(public)
     update(private)
