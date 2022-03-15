@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import json
 from time import sleep
 from pixivpy3 import AppPixivAPI
