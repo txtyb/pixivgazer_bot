@@ -155,13 +155,13 @@ def send_photo(path, chat_id, caption=None, mode='with_file', file_id=None):
 
 
 if __name__ == '__main__':
+    # create tmp dir if not exist
+    if os.path.exists('tmp') == False:
+        os.mkdir('tmp')
     clean_tmp()
     load_config('config.yaml')
     # login
     api.auth(refresh_token=c.pixiv_refensh_token)
-    # create tmp dir if not exist
-    if os.path.exists('tmp') == False:
-        os.mkdir('tmp')
     # get followed artists new pics
     public = api.illust_follow(restrict='public')
     private = api.illust_follow(restrict='private')
