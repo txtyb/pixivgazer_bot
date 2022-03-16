@@ -2,3 +2,5 @@
 config.yaml
 token.txt
 plan.txt
+.last_updated.yaml
+test.py

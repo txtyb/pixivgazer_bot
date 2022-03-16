@@ -14,6 +14,7 @@ class config:
     chat_id = ''
     tg_bot_token = ''
     pixiv_refensh_token = ''
+    last_updated = dict()
 
 
 c = config()
@@ -31,6 +32,16 @@ def load_config(path):
         c.chat_id = yaml_result['tg_chat_id']
         c.tg_bot_token = yaml_result['tg_bot_token']
         c.pixiv_refensh_token = yaml_result['pixiv_refresh_token']
+    # load last updated id list
+    # if '.last_updated.yaml' not exist, give an empty init
+    if os.path.exists(relative_path_fix('.last_updated.yaml')) == False:
+        c.last_updated = {
+            'private': [], 
+            'public': []
+        }
+    else:
+        with open(relative_path_fix('.last_updated.yaml'), 'r') as file:
+            c.last_updated = yaml.load(file, Loader=yaml.FullLoader)
 
 
 # preserving 60 pics in /tmp
@@ -55,6 +66,37 @@ def replace_char(str):
     for key, value in char_to_replace.items():
         str = str.replace(key, value)
     return str
+
+
+# check newly get illusts list with '.last_updated.yaml'
+def updated_check(jsondict):
+    need_update = list()
+    for illust in jsondict.illusts:
+        if illust.id not in c.last_updated['public'] and c.last_updated['private']:
+            need_update.append(illust.id)
+    return need_update
+                
+
+''' 
+dump updated pics list to '.last_updated.yaml'
+typedict exp: {
+    'public': jsondict1, 
+    'private': jsondict2
+}
+'''
+def updated_dump(typedict):
+    for type in typedict:
+        id_dict = dict()
+        # write public and private type ids seperatly
+        for key, value in typedict.items():
+            id_dict[key] = list()
+            for illust in value.illusts:
+                id_dict[key].append(illust.id)
+
+    dump = yaml.dump(id_dict)
+
+    with open(relative_path_fix('.last_updated.yaml'), 'w') as file:
+        file.write(dump)
 
 
 # main method
