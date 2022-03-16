@@ -72,7 +72,7 @@ def replace_char(str):
 def updated_check(jsondict):
     need_update = list()
     for illust in jsondict.illusts:
-        if illust.id not in c.last_updated['public'] and c.last_updated['private']:
+        if illust.id not in c.last_updated['public'] and illust.id not in c.last_updated['private']:
             need_update.append(illust.id)
     return need_update
                 
@@ -101,60 +101,61 @@ def updated_dump(typedict):
 
 # main method
 def update(json_result):
-    for illust in json_result.illusts:
+    # gen need_update_list
+    need_update_list = updated_check(json_result)
+    for id in need_update_list:
         file_id = None
-        # check whether the pic is new
-        if os.path.exists(os.path.join(relative_path_fix('tmp'), '%d.jpg')%illust.id) == False:
-            api.download(illust.image_urls['large'],
-                        path=relative_path_fix('tmp'), name='%s.jpg' % illust.id)
-            # format tags
-            tag_caption = str()
-            for tag in illust.tags:
-                tag_caption += '[\\#%s ](https://www.pixiv.net/tags/%s/artworks)' % (
-                    replace_char(tag.name), replace_char(tag.name))
-            caption = '[%s](https://www.pixiv.net/artworks/%s)\n%s' % (replace_char(illust.title),
-                                                                    illust.id, tag_caption)
-            # print sending action
-            print("Sending......title: %s id: %s" % (illust.title, illust.id))
-            sendingstatus = True
-            retrytime = 0
-            # send to all the chats
-            for per_chat_id in c.chat_id:
-                # if file_id exist, then use it
-                if file_id != None:
-                    send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % illust.id), per_chat_id, caption=caption, mode='with_id', file_id=file_id)
+        detail = api.illust_detail(id).illust
+        api.download(detail.image_urls['large'], path=relative_path_fix('tmp'), name='%s.jpg' % detail.id)
+        # format tags
+        tag_caption = str()
+        for tag in detail.tags:
+            tag_caption += '[\\#%s ](https://www.pixiv.net/tags/%s/artworks)' % (replace_char(tag.name), replace_char(tag.name))
+        # format user
+        user_caption = '[%s](https://www.pixiv.net/users/%s)'%(replace_char(detail.user.name), detail.user.id)
+        # format caption
+        caption = '[%s](https://www.pixiv.net/artworks/%s)\nartist: %s\n%s' % (replace_char(detail.title),detail.id, user_caption, tag_caption)
+        # print sending action
+        print("Sending......title: %s id: %s" % (detail.title, detail.id))
+        sendingstatus = True
+        retrytime = 0
+        # send to all the chats
+        for per_chat_id in c.chat_id:
+            # if file_id exist, then use it
+            if file_id != None:
+                send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % detail.id), per_chat_id, caption=caption, mode='with_id', file_id=file_id)
+                sendingstatus = send_action['status']
+                if sendingstatus:
+                    file_id = send_action['file_id']
+                # if sending failed, retry twice
+                while sendingstatus == False and retrytime <= 1:
+                    retrytime += 1
+                    sleep(1)
+                    send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % detail.id), per_chat_id, caption=caption)
                     sendingstatus = send_action['status']
                     if sendingstatus:
                         file_id = send_action['file_id']
-                    # if sending failed, retry twice
-                    while sendingstatus == False and retrytime <= 1:
-                        retrytime += 1
-                        sleep(1)
-                        send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % illust.id), per_chat_id, caption=caption)
-                        sendingstatus = send_action['status']
-                        if sendingstatus:
-                            file_id = send_action['file_id']
-                    if retrytime == 2:
-                        print('illust.id: %s sending failed after 2 retrys' % illust.id)
+                if retrytime == 2:
+                    print('illust.id: %s sending failed after 2 retrys' % detail.id)
+                sleep(1)
+            else:
+                send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % detail.id), per_chat_id, caption=caption)
+                sendingstatus = send_action['status']
+                if sendingstatus:
+                    file_id = send_action['file_id']
+                # if sending failed, retry twice
+                while sendingstatus == False and retrytime <= 1:
+                    retrytime += 1
                     sleep(1)
-                else:
-                    send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % illust.id), per_chat_id, caption=caption)
+                    send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % detail.id), per_chat_id, caption=caption)
                     sendingstatus = send_action['status']
                     if sendingstatus:
                         file_id = send_action['file_id']
-                    # if sending failed, retry twice
-                    while sendingstatus == False and retrytime <= 1:
-                        retrytime += 1
-                        sleep(1)
-                        send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % illust.id), per_chat_id, caption=caption)
-                        sendingstatus = send_action['status']
-                        if sendingstatus:
-                            file_id = send_action['file_id']
-                    if retrytime == 2:
-                        print('illust.id: %s sending failed after 2 retrys' % illust.id)
-                    sleep(1)
-    # after sending one image, clear file_id
-    file_id = None
+                if retrytime == 2:
+                    print('illust.id: %s sending failed after 2 retrys' % detail.id)
+                sleep(1)
+        # after sending one image, clear file_id
+        file_id = None
 
 
 def get_file_id(jsonstr):
@@ -213,6 +214,13 @@ if __name__ == '__main__':
     # get followed artists new pics
     public = api.illust_follow(restrict='public')
     private = api.illust_follow(restrict='private')
+    # use for updated_dump
+    typedict1 = {
+        'public': public, 
+        'private': private
+    }
     # update
     update(public)
     update(private)
+    # dump updated pics ids to ',last_updated.yaml'
+    updated_dump(typedict1)
