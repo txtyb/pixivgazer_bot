@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
+from ast import Nonlocal
+from email.mime import image
+from locale import getlocale
 from time import sleep
+from typing import overload
 from pixivpy3 import AppPixivAPI
 import os
 import requests
@@ -103,42 +107,92 @@ def updated_dump(typedict):
 def update(json_result):
     # gen need_update_list
     need_update_list = updated_check(json_result)
+    # pics_list is a bunch of pic_dict()
+    pics_list = list()
     for id in need_update_list:
+        ''' 
+        to store info of this id, something like
+        img_urls:
+            - https://i.pximg.net/img-original/img/2022/04/04/23/33/28/97411352_p0.jpg
+            - https://i.pximg.net/img-original/img/2022/04/04/23/33/28/97411352_p1.jpg
+        caption: aweadga
+        overten: False
+        count: 5
+        title: gahsdfgha
+        id: 785859
+        '''
+        pic_dict = dict()
+        pic_dict['img_urls'] = list()
         file_id = None
         detail = api.illust_detail(id).illust
-        api.download(detail.image_urls['large'], path=relative_path_fix('tmp'), name='%s.jpg' % detail.id)
+        count = detail['page_count']
+        pic_dict['count'] = count
+        current_count = 0
+        pic_dict['title'] = detail.title
+        pic_dict['id'] = detail.id
+        meta_page = list()
+        if count == 1:
+            meta_page.append(detail.meta_single_page)
+        else:
+            meta_page = detail.meta_pages
+        overten = False
+        for img in meta_page:
+            # if pic's quantity is over 10, only get 10 pics
+            if current_count == 10:
+                overten = True
+                break
+            if count == 1:
+                url = img['original_image_url']
+            else:
+                url = img.image_urls['original']
+            pic_dict['img_urls'].append(url)
+            current_count += 1
+        pic_dict['overten'] = overten
         # format tags
-        tag_caption = str()
+        tags_caption = str()
         for tag in detail.tags:
-            tag_caption += '[\\#%s ](https://www.pixiv.net/tags/%s/artworks)' % (replace_char(tag.name), replace_char(tag.name))
+            tags_caption += '[\\#%s ](https://www.pixiv.net/tags/%s/artworks)' % (replace_char(tag.name), replace_char(tag.name))
         # format user
         user_caption = '[%s](https://www.pixiv.net/users/%s)'%(replace_char(detail.user.name), detail.user.id)
         # format caption
-        caption = '[%s](https://www.pixiv.net/artworks/%s)\nartist: %s\n%s' % (replace_char(detail.title),detail.id, user_caption, tag_caption)
-        # print sending action
+        pic_dict['caption'] = '[%s](https://www.pixiv.net/artworks/%s)\nartist: %s\n%s' % (replace_char(detail.title),detail.id, user_caption, tags_caption)
+        # add current pic_dict into pics_list
+        pics_list.append(pic_dict)
+    for pic in pics_list:
+        # send pics
+        # print sending action msg
         print("Sending......title: %s id: %s" % (detail.title, detail.id))
-        sendingstatus = True
-        # send to all the chats
-        for per_chat_id in c.chat_id:
-            # if file_id exist, then use it
-            if file_id != None:
-                send_action = send_and_retry(os.path.join(relative_path_fix('tmp'), '%s.jpg' % detail.id), per_chat_id, caption=caption, mode='with_id', file_id=file_id)
-                sendingstatus = send_action['rst']
-                if sendingstatus:
-                    file_id = send_action['file_id']
+        for url in pic['img_urls']:
+            # exp: '97411352_p0.jpg'
+            name = url.split('/')[-1]
+            caption = pic['caption']
+            count = pic['count']
+            sendingstatus = True
+            if count >= 2:
+                print('processing %s'%name)
+            # download pic
+            api.download(url, path=relative_path_fix('tmp'), name=name)
+            # send to all the chats
+            for per_chat_id in c.chat_id:
+                # if file_id exist, then use it
+                if file_id != None:
+                    send_action = send_and_retry(os.path.join(relative_path_fix('tmp'), name), per_chat_id, caption=caption, mode='with_id', file_id=file_id)
+                    sendingstatus = send_action['rst']
+                    if sendingstatus:
+                        file_id = send_action['file_id']
+                    else:
+                        print('%s sending failed after 2 retrys' % name)
+                    sleep(1)
                 else:
-                    print('illust.id: %s sending failed after 2 retrys' % detail.id)
-                sleep(1)
-            else:
-                send_action = send_and_retry(os.path.join(relative_path_fix('tmp'), '%s.jpg' % detail.id), per_chat_id, caption=caption)
-                sendingstatus = send_action['rst']
-                if sendingstatus:
-                    file_id = send_action['file_id']
-                else:
-                    print('illust.id: %s sending failed after 2 retrys' % detail.id)
-                sleep(1)
-        # after sending one image, clear file_id
-        file_id = None
+                    send_action = send_and_retry(os.path.join(relative_path_fix('tmp'), name), per_chat_id, caption=caption)
+                    sendingstatus = send_action['rst']
+                    if sendingstatus:
+                        file_id = send_action['file_id']
+                    else:
+                        print('%s sending failed after 2 retrys' % name)
+                    sleep(1)
+            # after sending one image, clear file_id
+            file_id = None
 
 
 def get_file_id(jsonstr):
