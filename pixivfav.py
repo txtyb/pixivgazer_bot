@@ -118,40 +118,23 @@ def update(json_result):
         # print sending action
         print("Sending......title: %s id: %s" % (detail.title, detail.id))
         sendingstatus = True
-        retrytime = 0
         # send to all the chats
         for per_chat_id in c.chat_id:
             # if file_id exist, then use it
             if file_id != None:
-                send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % detail.id), per_chat_id, caption=caption, mode='with_id', file_id=file_id)
-                sendingstatus = send_action['status']
+                send_action = send_and_retry(os.path.join(relative_path_fix('tmp'), '%s.jpg' % detail.id), per_chat_id, caption=caption, mode='with_id', file_id=file_id)
+                sendingstatus = send_action['rst']
                 if sendingstatus:
                     file_id = send_action['file_id']
-                # if sending failed, retry twice
-                while sendingstatus == False and retrytime <= 1:
-                    retrytime += 1
-                    sleep(1)
-                    send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % detail.id), per_chat_id, caption=caption)
-                    sendingstatus = send_action['status']
-                    if sendingstatus:
-                        file_id = send_action['file_id']
-                if retrytime == 2:
+                else:
                     print('illust.id: %s sending failed after 2 retrys' % detail.id)
                 sleep(1)
             else:
-                send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % detail.id), per_chat_id, caption=caption)
-                sendingstatus = send_action['status']
+                send_action = send_and_retry(os.path.join(relative_path_fix('tmp'), '%s.jpg' % detail.id), per_chat_id, caption=caption)
+                sendingstatus = send_action['rst']
                 if sendingstatus:
                     file_id = send_action['file_id']
-                # if sending failed, retry twice
-                while sendingstatus == False and retrytime <= 1:
-                    retrytime += 1
-                    sleep(1)
-                    send_action = send_photo(os.path.join(relative_path_fix('tmp'), '%s.jpg' % detail.id), per_chat_id, caption=caption)
-                    sendingstatus = send_action['status']
-                    if sendingstatus:
-                        file_id = send_action['file_id']
-                if retrytime == 2:
+                else:
                     print('illust.id: %s sending failed after 2 retrys' % detail.id)
                 sleep(1)
         # after sending one image, clear file_id
@@ -201,6 +184,26 @@ def send_photo(path, chat_id, caption=None, mode='with_file', file_id=None):
             print('Send to telegram error! '+str(err))
             print(response_text)
             return {'status': False, 'file_id': None}
+
+# retry twice if failed
+def send_and_retry(path, chat_id, caption=None, mode='with_file', file_id=None):
+    send_action = send_photo(path, chat_id, caption=caption, mode=mode, file_id=file_id)
+    sendingstatus = send_action['status']
+    if sendingstatus:
+        file_id = send_action['file_id']
+        return {'rst': True, 'file_id': file_id}
+    # if sending failed, retry twice
+    retrytime = 0
+    while sendingstatus == False and retrytime <= 1:
+        retrytime += 1
+        sleep(1)
+        send_action = send_photo(path, chat_id, caption=caption, mode=mode, file_id=file_id)
+        sendingstatus = send_action['status']
+        if sendingstatus:
+            file_id = send_action['file_id']
+            return {'rst': True, 'file_id': file_id}
+    if retrytime == 2:
+        return {'rst': False, 'file_id': file_id}
 
 
 if __name__ == '__main__':
