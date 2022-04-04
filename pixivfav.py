@@ -5,6 +5,8 @@ from email.mime import image
 from locale import getlocale
 from time import sleep
 from typing import overload
+from unicodedata import name
+from xml.dom import NamespaceErr
 from pixivpy3 import AppPixivAPI
 import os
 import requests
@@ -123,7 +125,7 @@ def update(json_result):
         '''
         pic_dict = dict()
         pic_dict['img_urls'] = list()
-        file_id = None
+        file_ids = list()
         detail = api.illust_detail(id).illust
         count = detail['page_count']
         pic_dict['count'] = count
@@ -161,38 +163,42 @@ def update(json_result):
     for pic in pics_list:
         # send pics
         # print sending action msg
-        print("Sending......title: %s id: %s" % (detail.title, detail.id))
-        for url in pic['img_urls']:
+        print("Sending......title: %s id: %s" % (pic['title'], pic['id']))
+        urls = pic['img_urls']
+        names = list()
+        for url in urls:
             # exp: '97411352_p0.jpg'
             name = url.split('/')[-1]
-            caption = pic['caption']
-            count = pic['count']
-            sendingstatus = True
-            if count >= 2:
-                print('processing %s'%name)
+            names.append(name)
+            # if count >= 2:
+            #     print('processing %s'%name)
             # download pic
             api.download(url, path=relative_path_fix('tmp'), name=name)
-            # send to all the chats
-            for per_chat_id in c.chat_id:
-                # if file_id exist, then use it
-                if file_id != None:
-                    send_action = send_and_retry(os.path.join(relative_path_fix('tmp'), name), per_chat_id, caption=caption, mode='with_id', file_id=file_id)
-                    sendingstatus = send_action['rst']
-                    if sendingstatus:
-                        file_id = send_action['file_id']
-                    else:
-                        print('%s sending failed after 2 retrys' % name)
-                    sleep(1)
-                else:
-                    send_action = send_and_retry(os.path.join(relative_path_fix('tmp'), name), per_chat_id, caption=caption)
-                    sendingstatus = send_action['rst']
-                    if sendingstatus:
-                        file_id = send_action['file_id']
-                    else:
-                        print('%s sending failed after 2 retrys' % name)
-                    sleep(1)
-            # after sending one image, clear file_id
-            file_id = None
+        sendingstatus = True
+        caption = pic['caption']
+        count = pic['count']
+        # list to pass data to send func
+        '''
+        exp: info
+        list({'name': name1, 'file_id': file_id1}, {'name': name2, 'file_id': file_id2}...)
+        '''
+        info = list()
+        for name in names:
+            info.append(
+                {'name': name,
+                 'file_id': None
+                 })
+        # send to all the chats
+        for per_chat_id in c.chat_id:
+            send_action = send_and_retry(info, per_chat_id, caption=caption)
+            sendingstatus = send_action['rst']
+            if sendingstatus:
+                info = send_action['info']
+            else:
+                print('%s sending failed after 2 retrys' % name)
+            sleep(1)
+        # after sending one pic, clear info
+        info = None
 
 
 def get_file_id(jsonstr):
@@ -201,63 +207,83 @@ def get_file_id(jsonstr):
     return file_id
 
 
-def send_photo(path, chat_id, caption=None, mode='with_file', file_id=None):
-    url = 'https://api.telegram.org/bot%s/sendPhoto' % (c.tg_bot_token)
-    data = {
-        'chat_id': chat_id,
-        'caption': caption,
-        'parse_mode': 'MarkdownV2'
-    }
-    # sending with file
-    if mode == 'with_file':
-        with open(path, 'rb') as photo:
-            response_text = str()
-            try:
-                response = requests.post(url, data=data, files={'photo': photo})
-                response_text = response.text
-                response.raise_for_status()
-                if response.status_code == 200:
-                    file_id = get_file_id(response.text)
-                    return {'status': True, 'file_id': file_id}
-            except requests.RequestException as err:
-                print('Send to telegram error! '+str(err))
-                print(response_text)
-                return {'status': False, 'file_id': None}
-    # sending with file_id
-    elif mode == 'with_id':
-        response_text = str()
-        try:
-            data['photo'] = file_id
-            response = requests.post(url, data=data)
-            response_text = response.text
-            response.raise_for_status()
-            if response.status_code == 200:
-                file_id = get_file_id(response.text)
-                return {'status': True, 'file_id': file_id}
-        except requests.RequestException as err:
-            print('Send to telegram error! '+str(err))
-            print(response_text)
-            return {'status': False, 'file_id': None}
+def send_photo(info, chat_id, caption=None):
+    # names = info['names']
+    # file_ids = info['file_ids']
+    # paths = list(map(lambda x: os.path.join(relative_path_fix('tmp'), x), names))
+    count = len(info)
+    # decide msg_type
+    msg_type = 'single'
+    if count > 1:
+        msg_type = 'group'
+    i = 0
+    for pic in info:
+        name = pic['name']
+        file_id = pic['file_id']
+        path = os.path.join(relative_path_fix('tmp'), name)
+        # decide sending mode
+        mode = 'with_file'
+        if file_id != None:
+            mode = 'with_id'
+        # only one pic
+        if msg_type == 'single':
+            url = 'https://api.telegram.org/bot%s/sendPhoto' % (c.tg_bot_token)
+            data = {
+                'chat_id': chat_id,
+                'caption': caption,
+                'parse_mode': 'MarkdownV2'
+            }
+            # sending with file
+            if mode == 'with_file':
+                with open(path, 'rb') as photo:
+                    response_text = str()
+                    try:
+                        response = requests.post(url, data=data, files={'photo': photo})
+                        response_text = response.text
+                        response.raise_for_status()
+                        if response.status_code == 200:
+                            file_id = get_file_id(response.text)
+                            info[i]['file_id'] = file_id
+                            return {'status': True, 'info': info}
+                    except requests.RequestException as err:
+                        print('Send to telegram error! '+str(err))
+                        print(response_text)
+                        return {'status': False, 'info': info}
+            # sending with file_id
+            elif mode == 'with_id':
+                response_text = str()
+                try:
+                    data['photo'] = file_id
+                    response = requests.post(url, data=data)
+                    response_text = response.text
+                    response.raise_for_status()
+                    if response.status_code == 200:
+                        return {'status': True, 'info': info}
+                except requests.RequestException as err:
+                    print('Send to telegram error! '+str(err))
+                    print(response_text)
+                    return {'status': False, 'info': info}
+        i += 1
 
 # retry twice if failed
-def send_and_retry(path, chat_id, caption=None, mode='with_file', file_id=None):
-    send_action = send_photo(path, chat_id, caption=caption, mode=mode, file_id=file_id)
+def send_and_retry(info, chat_id, caption=None):
+    send_action = send_photo(info, chat_id, caption=caption)
     sendingstatus = send_action['status']
     if sendingstatus:
-        file_id = send_action['file_id']
-        return {'rst': True, 'file_id': file_id}
+        info = send_action['info']
+        return {'rst': True, 'info': info}
     # if sending failed, retry twice
     retrytime = 0
     while sendingstatus == False and retrytime <= 1:
         retrytime += 1
         sleep(1)
-        send_action = send_photo(path, chat_id, caption=caption, mode=mode, file_id=file_id)
+        send_action = send_photo(info, chat_id, caption=caption)
         sendingstatus = send_action['status']
         if sendingstatus:
-            file_id = send_action['file_id']
-            return {'rst': True, 'file_id': file_id}
+            info = send_action['info']
+            return {'rst': True, 'info': info}
     if retrytime == 2:
-        return {'rst': False, 'file_id': file_id}
+        return {'rst': False, 'info': info}
 
 
 if __name__ == '__main__':
