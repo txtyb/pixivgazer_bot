@@ -6,3 +6,4 @@ plan.txt
 test.py
 test2.py
 test.yaml
+/__pycache__/

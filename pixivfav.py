@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 
-from ast import Nonlocal
-from email.mime import image
-from locale import getlocale
 from time import sleep
-from typing import overload
-from unicodedata import name
-from xml.dom import NamespaceErr
 from pixivpy3 import AppPixivAPI
 import os
 import requests
@@ -107,31 +101,86 @@ def updated_dump(typedict):
 
 # main method
 def update(json_result):
+    def download(pic, path):
+        width = pic['width']
+        height = pic['height']
+        count = len(pic['img_urls'])
+        id = pic['id']
+        urls = list()
+        # file names to send
+        names = list()
+        # if px too big, then download 'large' instead of 'original'
+        if width + height >= 10000:
+            detail = api.illust_detail(id).illust
+            # if multiple
+            if count > 1:
+                for page in detail.meta_pages:
+                    url = page['large']
+                    urls.append(url)
+            # if single
+            elif count ==1:
+                url = detail.image_urls['large']
+                urls.append(url)
+        else:
+            urls = pic['img_urls']
+        # only download 10 pics if overten
+        if pic['overten']:
+            urls = urls[0:11]
+        for url in urls:
+            # exp: '97411352_p0.jpg'
+            name = url.split('/')[-1]
+            # download pic
+            api.download(url, path=relative_path_fix('tmp'), name=name)
+            # size in MB
+            size = os.path.getsize(os.path.join(relative_path_fix('tmp'), name))/(1024*1024.0)
+            if size > 10:
+                detail = api.illust_detail(id).illust
+                # if multiple
+                if count > 1:
+                    # name is something like '97423306_p1.jpg', number = 1
+                    number = name.split('.')[0].split('_')[1][1:-1]
+                    pages = detail.meta_pages
+                    url_new = pages[number]['image_urls']['large']
+                    name = url_new.split('/')[-1] 
+                    api.download(url_new, path=relative_path_fix('tmp'), name=name)
+                # if single
+                elif count ==1:
+                    url_new = detail.image_urls['large']
+                    name = url_new.split('/')[-1] 
+                    api.download(url_new, path=relative_path_fix('tmp'), name=name)
+            names.append(name)
+
+        return names
+
+
     # gen need_update_list
     need_update_list = updated_check(json_result)
-    # pics_list is a bunch of pic_dict()
+    # pics_list contains a bunch of pic_dict()
     pics_list = list()
     for id in need_update_list:
         ''' 
         to store info of this id, something like
-        img_urls:
+        'img_urls':
             - https://i.pximg.net/img-original/img/2022/04/04/23/33/28/97411352_p0.jpg
             - https://i.pximg.net/img-original/img/2022/04/04/23/33/28/97411352_p1.jpg
-        caption: aweadga
-        overten: False
-        count: 5
-        title: gahsdfgha
-        id: 785859
+        'caption': aweadga
+        'overten': False
+        'count': 5
+        'title': gahsdfgha
+        'id': 785859
+        'width': 715
+        'height' :1000
         '''
         pic_dict = dict()
         pic_dict['img_urls'] = list()
-        file_ids = list()
         detail = api.illust_detail(id).illust
         count = detail['page_count']
         pic_dict['count'] = count
         current_count = 0
         pic_dict['title'] = detail.title
         pic_dict['id'] = detail.id
+        pic_dict['width'] = detail.width
+        pic_dict['height'] = detail.height
         meta_page = list()
         if count == 1:
             meta_page.append(detail.meta_single_page)
@@ -164,16 +213,8 @@ def update(json_result):
         # send pics
         # print sending action msg
         print("Sending......title: %s id: %s" % (pic['title'], pic['id']))
-        urls = pic['img_urls']
-        names = list()
-        for url in urls:
-            # exp: '97411352_p0.jpg'
-            name = url.split('/')[-1]
-            names.append(name)
-            # if count >= 2:
-            #     print('processing %s'%name)
-            # download pic
-            api.download(url, path=relative_path_fix('tmp'), name=name)
+        # download pics, return file names to send
+        names = download(pic, relative_path_fix('tmp'))
         sendingstatus = True
         caption = pic['caption']
         count = pic['count']
@@ -201,13 +242,22 @@ def update(json_result):
         info = None
 
 
-def get_file_id(jsonstr):
-    json_rst = json.loads(jsonstr)
-    file_id = json_rst['result']['photo'][0]['file_id']
-    return file_id
-
-
 def send_photo(info, chat_id, caption=None):
+    def get_file_id(jsonstr):
+        json_rst = json.loads(jsonstr)
+        file_id = json_rst['result']['photo'][-1]['file_id']
+        return file_id
+
+
+    def get_group_file_id(jsonstr):
+        json_rst = json.loads(jsonstr)
+        file_ids = list()
+        for photo in json_rst['result']:
+            file_id = photo['photo'][-1]['file_id']
+            file_ids.append(file_id)
+        return file_ids
+    
+
     # names = info['names']
     # file_ids = info['file_ids']
     # paths = list(map(lambda x: os.path.join(relative_path_fix('tmp'), x), names))
@@ -216,6 +266,10 @@ def send_photo(info, chat_id, caption=None):
     msg_type = 'single'
     if count > 1:
         msg_type = 'group'
+    # use for sending mediagroup
+    media_array = list()
+    # files sending with_file
+    files = dict()
     i = 0
     for pic in info:
         name = pic['name']
@@ -263,7 +317,63 @@ def send_photo(info, chat_id, caption=None):
                     print('Send to telegram error! '+str(err))
                     print(response_text)
                     return {'status': False, 'info': info}
+        # send mediagroup
+        elif msg_type == 'group':
+            url = 'https://api.telegram.org/bot%s/sendMediaGroup' % (c.tg_bot_token)
+            # construct InputMediaPhoto
+            InputMediaPhoto = {
+                'type': 'photo'
+            }
+            if mode == 'with_file':
+                InputMediaPhoto['media'] = 'attach://%s'%name
+                # need to close later
+                file = open(path, 'rb')
+                files['%s'%name] = file
+            elif mode == 'with_id':
+                InputMediaPhoto['media'] = file_id
+            # append to media_array
+            media_array.append(InputMediaPhoto)
         i += 1
+    # make request to send mediagroup
+    if msg_type == 'group':
+        data = {
+            'chat_id': chat_id,
+            'media': json.dumps(media_array)
+        }
+        response_text = str()
+        response2_text = str()
+        try:
+            response = requests.post(url, data=data, files=files)
+            # close all the file
+            for name, file in files.items():
+                file.close()
+            response_text = response.text
+            response.raise_for_status()
+            file_ids = list()
+            if response.status_code == 200:
+                file_ids = get_group_file_id(response.text)
+                for file_id, pic in zip(file_ids, info):
+                    pic['file_id'] = file_id
+            url2 = 'https://api.telegram.org/bot%s/sendMessage' % (c.tg_bot_token)
+            data2 = {
+                'chat_id': chat_id,
+                'text': caption,
+                'parse_mode': 'MarkdownV2', 
+                'disable_web_page_preview': True
+            }
+            # send caption for a single msg
+            response2 = requests.post(url2, data=data2)
+            response2_text = response2.text
+            response2.raise_for_status()
+            return {'status': True, 'info': info}
+        except requests.RequestException as err:
+            print('Send to telegram error! '+str(err))
+            if response2_text:
+                print(response2_text)
+            else:
+                print(response_text)
+            return {'status': False, 'info': info}
+
 
 # retry twice if failed
 def send_and_retry(info, chat_id, caption=None):
