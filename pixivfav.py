@@ -138,7 +138,7 @@ def update(json_result):
                 # if multiple
                 if count > 1:
                     # name is something like '97423306_p1.jpg', number = 1
-                    number = name.split('.')[0].split('_')[1][1:-1]
+                    number = int(name.split('.')[0].split('_')[1][1:])
                     pages = detail.meta_pages
                     url_new = pages[number]['image_urls']['large']
                     name = url_new.split('/')[-1] 
