@@ -115,7 +115,7 @@ def update(json_result):
             # if multiple
             if count > 1:
                 for page in detail.meta_pages:
-                    url = page['large']
+                    url = page['image_urls']['large']
                     urls.append(url)
             # if single
             elif count ==1:
