@@ -6,6 +6,15 @@ import os
 import requests
 import yaml
 import json
+import logging
+
+# set logger
+logger = logging.getLogger('')
+logger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+formatter = logging.Formatter('%(levelname)s: %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
 
 api = AppPixivAPI()
 
@@ -55,7 +64,7 @@ def clean_tmp():
     pics_to_del = pics[0:len(pics)-59-1]
     for pic in pics_to_del:
         os.remove(os.path.join(relative_path_fix('tmp'), pic))
-    print('cleaned %d pics in tmp'%len(pics_to_del))
+    logging.info('Cleaned %d pics in tmp'%len(pics_to_del))
     return
 
 
@@ -212,7 +221,7 @@ def update(json_result):
     for pic in pics_list:
         # send pics
         # print sending action msg
-        print("Sending......title: %s id: %s" % (pic['title'], pic['id']))
+        logging.info("Sending......title: %s id: %s" % (pic['title'], pic['id']))
         # download pics, return file names to send
         names = download(pic, relative_path_fix('tmp'))
         sendingstatus = True
@@ -236,7 +245,7 @@ def update(json_result):
             if sendingstatus:
                 info = send_action['info']
             else:
-                print('%s sending failed after 2 retrys' % name)
+                logging.error('%s sending failed after 2 retrys' % name)
             sleep(1)
         # after sending one pic, clear info
         info = None
@@ -278,8 +287,8 @@ def send_photo(info, chat_id, caption=None):
                         info[index]['file_id'] = file_id
                         return {'status': True, 'info': info}
                 except requests.RequestException as err:
-                    print('Send to telegram error! '+str(err))
-                    print(response_text)
+                    logging.error('Send to telegram error! '+str(err))
+                    logging.info(response_text)
                     return {'status': False, 'info': info}
         # sending with file_id
         elif mode == 'with_id':
@@ -292,8 +301,8 @@ def send_photo(info, chat_id, caption=None):
                 if response.status_code == 200:
                     return {'status': True, 'info': info}
             except requests.RequestException as err:
-                print('Send to telegram error! '+str(err))
-                print(response_text)
+                logging.error('Send to telegram error! '+str(err))
+                logging.info(response_text)
                 return {'status': False, 'info': info}
     
 
@@ -321,11 +330,11 @@ def send_photo(info, chat_id, caption=None):
                     pic['file_id'] = file_id
                 return {'status': True, 'info': info}
         except requests.RequestException as err:
-            print('Send to telegram error! type: MediaGroup '+str(err))
-            print(response_text)
+            logging.error('Send to telegram error! type: MediaGroup '+str(err))
+            logging.info(response_text)
             # if too many requests
             if status_code == 429:
-                print('Too many requests! Sleep 60 Secs......')
+                logging.warning('Too many requests! Sleep 60 Secs......')
                 sleep(60)
             return {'status': False, 'info': info}
 
@@ -348,11 +357,11 @@ def send_photo(info, chat_id, caption=None):
             response.raise_for_status()
             return {'status': True, 'info': info}
         except requests.RequestException as err:
-            print('Send to telegram error! type: Message '+str(err))
-            print(response_text)
+            logging.error('Send to telegram error! type: Message '+str(err))
+            logging.info(response_text)
             # if too many requests
             if status_code == 429:
-                print('Too many requests! Sleep 60 Secs......')
+                logging.warning('Too many requests! Sleep 60 Secs......')
                 sleep(60)
             return {'status': False, 'info': info}
 
@@ -407,7 +416,7 @@ def send_photo(info, chat_id, caption=None):
         result = send_msg()
         if result['status'] == False:
             # post again
-            print('Sending msg [2/2]......')
+            logging.info('Sending msg [2/2]......')
             result = send_msg()
         return result
         
