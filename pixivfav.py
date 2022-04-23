@@ -256,7 +256,106 @@ def send_photo(info, chat_id, caption=None):
             file_id = photo['photo'][-1]['file_id']
             file_ids.append(file_id)
         return file_ids
+
+    def send_single(path, mode, index):
+        nonlocal file_id
+        url = 'https://api.telegram.org/bot%s/sendPhoto' % (c.tg_bot_token)
+        data = {
+            'chat_id': chat_id,
+            'caption': caption,
+            'parse_mode': 'MarkdownV2'
+        }
+        # sending with file
+        if mode == 'with_file':
+            with open(path, 'rb') as photo:
+                response_text = str()
+                try:
+                    response = requests.post(url, data=data, files={'photo': photo})
+                    response_text = response.text
+                    response.raise_for_status()
+                    if response.status_code == 200:
+                        file_id = get_file_id(response.text)
+                        info[index]['file_id'] = file_id
+                        return {'status': True, 'info': info}
+                except requests.RequestException as err:
+                    print('Send to telegram error! '+str(err))
+                    print(response_text)
+                    return {'status': False, 'info': info}
+        # sending with file_id
+        elif mode == 'with_id':
+            response_text = str()
+            try:
+                data['photo'] = file_id
+                response = requests.post(url, data=data)
+                response_text = response.text
+                response.raise_for_status()
+                if response.status_code == 200:
+                    return {'status': True, 'info': info}
+            except requests.RequestException as err:
+                print('Send to telegram error! '+str(err))
+                print(response_text)
+                return {'status': False, 'info': info}
     
+
+    def send_mediagroup(media_array, files):
+        url = 'https://api.telegram.org/bot%s/sendMediaGroup' % (c.tg_bot_token)
+        data = {
+            'chat_id': chat_id,
+            'media': json.dumps(media_array)
+        }
+        response_text = str()
+        status_code = int()
+        # send media group
+        try:
+            response = requests.post(url, data=data, files=files)
+            # close all the file
+            for name, file in files.items():
+                file.close()
+            response_text = response.text
+            status_code = response.status_code
+            response.raise_for_status()
+            file_ids = list()
+            if response.status_code == 200:
+                file_ids = get_group_file_id(response.text)
+                for file_id, pic in zip(file_ids, info):
+                    pic['file_id'] = file_id
+                return {'status': True, 'info': info}
+        except requests.RequestException as err:
+            print('Send to telegram error! type: MediaGroup '+str(err))
+            print(response_text)
+            # if too many requests
+            if status_code == 429:
+                print('Too many requests! Sleep 60 Secs......')
+                sleep(60)
+            return {'status': False, 'info': info}
+
+
+    def send_msg():
+        response_text = str()
+        url = 'https://api.telegram.org/bot%s/sendMessage' % (c.tg_bot_token)
+        data = {
+            'chat_id': chat_id,
+            'text': caption,
+            'parse_mode': 'MarkdownV2', 
+            'disable_web_page_preview': True
+        }
+        status_code = int()
+        try:
+            # send caption for a single msg
+            response = requests.post(url, data=data)
+            response_text = response.text
+            status_code = response.status_code
+            response.raise_for_status()
+            return {'status': True, 'info': info}
+        except requests.RequestException as err:
+            print('Send to telegram error! type: Message '+str(err))
+            print(response_text)
+            # if too many requests
+            if status_code == 429:
+                print('Too many requests! Sleep 60 Secs......')
+                sleep(60)
+            return {'status': False, 'info': info}
+
 
     # names = info['names']
     # file_ids = info['file_ids']
@@ -270,8 +369,7 @@ def send_photo(info, chat_id, caption=None):
     media_array = list()
     # files sending with_file
     files = dict()
-    i = 0
-    for pic in info:
+    for index, pic in enumerate(info):
         name = pic['name']
         file_id = pic['file_id']
         path = os.path.join(relative_path_fix('tmp'), name)
@@ -281,45 +379,11 @@ def send_photo(info, chat_id, caption=None):
             mode = 'with_id'
         # only one pic
         if msg_type == 'single':
-            url = 'https://api.telegram.org/bot%s/sendPhoto' % (c.tg_bot_token)
-            data = {
-                'chat_id': chat_id,
-                'caption': caption,
-                'parse_mode': 'MarkdownV2'
-            }
-            # sending with file
-            if mode == 'with_file':
-                with open(path, 'rb') as photo:
-                    response_text = str()
-                    try:
-                        response = requests.post(url, data=data, files={'photo': photo})
-                        response_text = response.text
-                        response.raise_for_status()
-                        if response.status_code == 200:
-                            file_id = get_file_id(response.text)
-                            info[i]['file_id'] = file_id
-                            return {'status': True, 'info': info}
-                    except requests.RequestException as err:
-                        print('Send to telegram error! '+str(err))
-                        print(response_text)
-                        return {'status': False, 'info': info}
-            # sending with file_id
-            elif mode == 'with_id':
-                response_text = str()
-                try:
-                    data['photo'] = file_id
-                    response = requests.post(url, data=data)
-                    response_text = response.text
-                    response.raise_for_status()
-                    if response.status_code == 200:
-                        return {'status': True, 'info': info}
-                except requests.RequestException as err:
-                    print('Send to telegram error! '+str(err))
-                    print(response_text)
-                    return {'status': False, 'info': info}
-        # send mediagroup
+            result = send_single(path, mode, index)
+            return result
+
+        # gen InputMediaPhoto array
         elif msg_type == 'group':
-            url = 'https://api.telegram.org/bot%s/sendMediaGroup' % (c.tg_bot_token)
             # construct InputMediaPhoto
             InputMediaPhoto = {
                 'type': 'photo'
@@ -333,47 +397,20 @@ def send_photo(info, chat_id, caption=None):
                 InputMediaPhoto['media'] = file_id
             # append to media_array
             media_array.append(InputMediaPhoto)
-        i += 1
+
     # make request to send mediagroup
     if msg_type == 'group':
-        data = {
-            'chat_id': chat_id,
-            'media': json.dumps(media_array)
-        }
-        response_text = str()
-        response2_text = str()
-        try:
-            response = requests.post(url, data=data, files=files)
-            # close all the file
-            for name, file in files.items():
-                file.close()
-            response_text = response.text
-            response.raise_for_status()
-            file_ids = list()
-            if response.status_code == 200:
-                file_ids = get_group_file_id(response.text)
-                for file_id, pic in zip(file_ids, info):
-                    pic['file_id'] = file_id
-            url2 = 'https://api.telegram.org/bot%s/sendMessage' % (c.tg_bot_token)
-            data2 = {
-                'chat_id': chat_id,
-                'text': caption,
-                'parse_mode': 'MarkdownV2', 
-                'disable_web_page_preview': True
-            }
-            # send caption for a single msg
-            response2 = requests.post(url2, data=data2)
-            response2_text = response2.text
-            response2.raise_for_status()
-            return {'status': True, 'info': info}
-        except requests.RequestException as err:
-            print('Send to telegram error! '+str(err))
-            if response2_text:
-                print(response2_text)
-            else:
-                print(response_text)
-            return {'status': False, 'info': info}
-
+        result = send_mediagroup(media_array, files)
+        if result['status'] == False:
+            return result
+        # send msg
+        result = send_msg()
+        if result['status'] == False:
+            # post again
+            print('Sending msg [2/2]......')
+            result = send_msg()
+        return result
+        
 
 # retry twice if failed
 def send_and_retry(info, chat_id, caption=None):
