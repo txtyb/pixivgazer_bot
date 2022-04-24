@@ -7,12 +7,14 @@ import requests
 import yaml
 import json
 import logging
+import sys
 
 # set logger
 logger = logging.getLogger('')
 logger.setLevel(logging.INFO)
-ch = logging.StreamHandler()
-formatter = logging.Formatter('%(levelname)s: %(message)s')
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s', datefmt='%a, %Y %b %d %H:%M:%S')
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
