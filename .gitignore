@@ -5,5 +5,7 @@ plan.txt
 .last_updated.yaml
 test.py
 test2.py
+test3.py
 test.yaml
-/__pycache__/
+**/__pycache__/
+/bot/pixivfav_old.py
