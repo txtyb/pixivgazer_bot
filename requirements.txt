@@ -1,5 +1,4 @@
 Pillow==9.1.1
-PixivPy==3.7.0
 pixivpy3==3.7.1
 PyYAML==6.0
-requests==2.26.0
+requests==2.27.1
