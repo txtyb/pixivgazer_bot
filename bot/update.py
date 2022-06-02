@@ -37,7 +37,10 @@ class Image:
                     break
 
                 im = pillowImage.open(path)
-                im.save(path, quality=qual)
+                # if the original pic is png, then convert it to jpeg in order to compress
+                if path.split('.')[-1] == 'png':
+                    im = im.convert('RGB')
+                im.save(path, 'JPEG', quality=qual)
                 currentSize = os.path.getsize(path)/(1024*1024.0)
                 qual -= 5
 
