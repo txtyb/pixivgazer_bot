@@ -307,7 +307,8 @@ class Update:
 
 
     def dump(self):
-        c.dump(self.type, self.updatedDump)
+        if not (len(self.updatedDump) == 0):
+            c.dump(self.type, self.updatedDump)
 
 
     def send(self):
@@ -334,8 +335,11 @@ class Update:
         def genUpdateList():
             needUpdate = list()
             for illust in self.jsonResult.illusts:
-                if illust.id not in c.last_updated['public'] and illust.id not in c.last_updated['private']:
+                if illust.id not in c.last_updated[self.type]:
                     needUpdate.append(illust.id)
+            
+            # make sure the last is the latest, and images should also be sent in that order
+            needUpdate = needUpdate[::-1]
             self.updateList = needUpdate
 
 
@@ -430,7 +434,8 @@ class Update:
 
         genUpdateList()
         genPicsList()
-        download()
+        if not (len(self.picsList) == 0):
+            download()
 
 
 def test():
