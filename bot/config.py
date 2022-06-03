@@ -31,11 +31,28 @@ class Config:
                 self.last_updated = yaml.load(file, Loader=yaml.FullLoader)
 
     
-    def dump(self, type, updatedDump):
+    def dump(self, type, updatedDump, updateList):
+        itemList = list()
+        # find the UpdateItem object of the id
+        for id in updatedDump:
+            item = None
+            for j in updateList:
+                if j.id == id:
+                    item = j
+                    break
+
+            tmpDict = dict()
+            tmpDict['id'] = item.id
+            tmpDict['timestamp'] = item.time
+
+            itemList.append(tmpDict)
+
         # the lastest id is the last id in the list
         newList = list()
         newList = self.last_updated[type]
-        newList.extend(updatedDump)
+        newList.extend(itemList)
+        # sort in time order, the last is the latest
+        newList.sort(key = lambda x:x['timestamp'])
         newList = newList[-30:]
         
         newDict = self.last_updated

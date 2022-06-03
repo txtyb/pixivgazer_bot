@@ -7,6 +7,7 @@ from config import c
 from utils import relativePathFix, replaceChar
 from PIL import Image as pillowImage
 from time import sleep
+from datetime import datetime
 
 api = AppPixivAPI()
 
@@ -291,6 +292,7 @@ class Msg(ObjectToSend):
 
 class Update:
     def __init__(self, type):
+        # contain a bunch of UpdateItem objects
         self.updateList = list()
         self.jsonResult = str()
         self.type = str()
@@ -311,7 +313,7 @@ class Update:
 
     def dump(self):
         if not (len(self.updatedDump) == 0):
-            c.dump(self.type, self.updatedDump)
+            c.dump(self.type, self.updatedDump, self.updateList)
 
 
     def send(self):
@@ -335,11 +337,30 @@ class Update:
 
 
     def update(self):
+        class UpdateItem:
+            def __init__(self, id, time):
+                self.id = id
+                self.time = toTimestamp(time)
+
+
+        # convert datetime string like '2022-06-04T00:32:12+09:00' to timestamp
+        def toTimestamp(time):
+            time = time[0:-3] + '00'
+            a = datetime.strptime(time, '%Y-%m-%dT%H:%M:%S%z')
+            return int(a.timestamp())
+        
+        
         def genUpdateList():
             needUpdate = list()
+            idList = list()
+            # extract ids from the list of dicts
+            for i in c.last_updated[self.type]:
+                idList.append(i['id'])
+
             for illust in self.jsonResult.illusts:
-                if illust.id not in c.last_updated[self.type]:
-                    needUpdate.append(illust.id)
+                if illust.id not in idList:
+                    item = UpdateItem(illust.id, illust.create_date)
+                    needUpdate.append(item)
             
             # make sure the last is the latest, and images should also be sent in that order
             needUpdate = needUpdate[::-1]
@@ -350,7 +371,7 @@ class Update:
             # picsList contains a bunch of Image instances
             picsList = list()
 
-            for id in self.updateList:
+            for i in self.updateList:
                 ''' 
                 to store info of this id, something like
                 'img_urls':
@@ -365,6 +386,8 @@ class Update:
                 'height' :1000
                 'single' : False
                 '''
+                id = i.id
+
                 image = Image()
 
                 detail = api.illust_detail(id).illust
@@ -436,6 +459,7 @@ class Update:
 
 
         genUpdateList()
+        # test()
         genPicsList()
         if not (len(self.picsList) == 0):
             download()
