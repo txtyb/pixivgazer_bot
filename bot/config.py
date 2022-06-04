@@ -53,7 +53,8 @@ class Config:
         newList.extend(itemList)
         # sort in time order, the last is the latest
         newList.sort(key = lambda x:x['timestamp'])
-        newList = newList[-30:]
+        # save 40 ids: 10 more for redundancy to avoid image being deleted which could cause duplicate sending
+        newList = newList[-40:]
         
         newDict = self.last_updated
         newDict[type] = newList
