@@ -1,5 +1,4 @@
 import logging
-from ntpath import join
 import os
 import requests
 import json
