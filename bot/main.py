@@ -2,7 +2,6 @@
 
 import sys
 import logging
-from config import c
 from update import Update
 from utils import cleanTmp
 

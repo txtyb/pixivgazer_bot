@@ -1,4 +1,5 @@
 import logging
+from ntpath import join
 import os
 import requests
 import json
@@ -8,6 +9,7 @@ from utils import relativePathFix, replaceChar
 from PIL import Image as pillowImage
 from time import sleep
 from datetime import datetime
+from ugoira import ugoira as convertUgoira
 
 api = AppPixivAPI()
 
@@ -88,6 +90,30 @@ class Image:
             return ['MediaGroup', mediaGroup, msg]
 
 
+class ImageUgoira(Image):
+    def download(self):
+        def getZipUrl():
+            jsonRst = api.ugoira_metadata(self.id)
+            self.zipUrl = jsonRst.ugoira_metadata.zip_urls.medium
+            self.metaData = jsonRst.ugoira_metadata
+
+        def genGif():
+            self.fileName = self.zipFileName.split('.')[0] + '.gif'
+            convertUgoira(1, 'gif', os.path.join(path, self.fileName), os.path.join(path, self.zipFileName), self.metaData)
+
+        
+        path = relativePathFix(os.path.join('..', 'tmp'))
+        getZipUrl()
+        self.zipFileName = self.zipUrl.split('/')[-1]
+        status = api.download(self.zipUrl, path=path, name=self.zipFileName)
+        logging.info('Generating GIF......id: %d' % self.id)
+        genGif()
+
+        ugoira = Ugoira(self.fileName, self.caption, self.title, self.id)
+        # os.remove(os.path.join(path, self.zipFileName))
+        return ['Ugoira', ugoira]
+
+
 class ObjectToSend():
     def sendAndRetry(self, chatId):
         # retry twice if failed
@@ -112,6 +138,7 @@ class ObjectToSend():
         if status:
             return True
         else:
+            logging.error('Sending failed after 2 retrys......title: %s id: %d' % (self.title, self.id))
             return False
 
 
@@ -290,6 +317,64 @@ class Msg(ObjectToSend):
             return [False, statusCode]
 
 
+class Ugoira(ObjectToSend):
+    def __init__(self, fileName, caption, title, id, fileId=None):
+        self.fileName = fileName
+        self.fileId = fileId
+        self.caption = caption
+        self.title = title
+        self.id = id
+
+
+    def getFileId(self, jsonStr):
+        jsonRst = json.loads(jsonStr)
+        fileId = jsonRst['result']['document']['file_id']
+        self.fileId = fileId
+
+
+    def send(self, chatId):
+        path = relativePathFix(os.path.join('..', 'tmp', self.fileName))
+        url = 'https://api.telegram.org/bot%s/sendAnimation' % (c.tg_bot_token)
+        data = {
+            'chat_id': chatId,
+            'caption': self.caption,
+            'parse_mode': 'MarkdownV2'
+        }
+        # send with file
+        if self.fileId is None:
+            with open(path, 'rb') as animation:
+                responseText = str()
+                statusCode = int()
+                try:
+                    response = requests.post(url, data=data, files={'animation': animation})
+                    responseText = response.text
+                    statusCode = response.status_code
+                    response.raise_for_status()
+                    if response.status_code == 200:
+                        # get fileId
+                        self.getFileId(response.text)
+                        return [True, statusCode]
+                except requests.RequestException as err:
+                    logging.error('Send to telegram error! '+str(err))
+                    logging.info(responseText)
+                    return [False, statusCode]
+        # send with fileId
+        else:
+            responseText = str()
+            statusCode = int()
+            try:
+                data['animation'] = self.fileId
+                response = requests.post(url, data=data)
+                responseText = response.text
+                statusCode = response.status_code
+                response.raise_for_status()
+                if response.status_code == 200:
+                    return [True, statusCode]
+            except requests.RequestException as err:
+                logging.error('Send to telegram error! '+str(err))
+                logging.info(responseText)
+                return [False, statusCode]
+
 class Update:
     def __init__(self, type):
         # contain a bunch of UpdateItem objects
@@ -320,7 +405,7 @@ class Update:
         chatIds = c.chat_id
         for i in self.sendList:
             # print sending action msg
-            if (type(i) == Photo) or (type(i) == MediaGroup):
+            if (type(i) == Photo) or (type(i) == MediaGroup) or (type(i) == Ugoira):
                 logging.info("Sending......title: %s id: %s" % (i.title, i.id))
             # sending Msg object, logging nothing
             else:
@@ -338,9 +423,10 @@ class Update:
 
     def update(self):
         class UpdateItem:
-            def __init__(self, id, time):
+            def __init__(self, id, time, type):
                 self.id = id
                 self.time = toTimestamp(time)
+                self.type = type
 
 
         # convert datetime string like '2022-06-04T00:32:12+09:00' to timestamp
@@ -359,8 +445,20 @@ class Update:
 
             for illust in self.jsonResult.illusts:
                 if illust.id not in idList:
-                    item = UpdateItem(illust.id, illust.create_date)
+                    item = UpdateItem(illust.id, illust.create_date, illust.type)
                     needUpdate.append(item)
+
+            # test
+            def test():
+                item = UpdateItem(91173737, '2022-06-06T01:09:03+09:00', 'ugoira')
+                needUpdate.append(item)
+                item = UpdateItem(98536884, '2022-06-06T02:09:03+09:00', 'ugoira')
+                needUpdate.append(item)
+                item = UpdateItem(98807008, '2022-06-06T02:09:03+09:00', 'illust')
+                needUpdate.append(item)
+                item = UpdateItem(98766380, '2022-06-06T00:09:03+09:00', 'ugoira')
+                needUpdate.append(item)
+            # test()
             
             # make sure the last is the latest, and images should also be sent in that order
             needUpdate = needUpdate[::-1]
@@ -387,8 +485,11 @@ class Update:
                 'single' : False
                 '''
                 id = i.id
-
-                image = Image()
+                
+                if i.type == 'ugoira':
+                    image = ImageUgoira()
+                else:
+                    image = Image()
 
                 detail = api.illust_detail(id).illust
                 count = detail['page_count']
@@ -447,7 +548,7 @@ class Update:
             for pic in self.picsList:
                 # download
                 obj = pic.download()
-                if obj[0] == 'Photo':
+                if obj[0] == 'Photo' or obj[0] == 'Ugoira':
                     sendList.append(obj[1])
                 elif obj[0] == 'MediaGroup':
                     sendList.append(obj[1])
