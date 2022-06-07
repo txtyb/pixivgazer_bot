@@ -14,6 +14,8 @@ api = AppPixivAPI()
 
 # login
 api.auth(refresh_token=c.pixiv_refensh_token)
+# set language for getting translated tags
+api.set_accept_language('zh-cn')
 
 
 class Image:
@@ -525,8 +527,10 @@ class Update:
                 # format tags
                 tagsCaption = str()
                 for tag in detail.tags:
-                    tagNameReplaced = replaceChar(tag.name)
-                    tagsCaption += '[\\#%s ](https://www.pixiv.net/tags/%s/artworks)' % (
+                    # add translated tag names if exist
+                    tagName = '%s%s' % (tag.name, ('「%s」' % tag.translated_name) if tag.translated_name else '')
+                    tagNameReplaced = replaceChar(tagName)
+                    tagsCaption += '[\\#%s  ](https://www.pixiv.net/tags/%s/artworks)' % (
                         tagNameReplaced, tagNameReplaced)
                 # format user
                 userCaption = '[%s](https://www.pixiv.net/users/%s)' % (
