@@ -531,7 +531,7 @@ class Update:
                     tagName = '%s%s' % (tag.name, ('「%s」' % tag.translated_name) if tag.translated_name else '')
                     tagNameReplaced = replaceChar(tagName)
                     tagsCaption += '[\\#%s  ](https://www.pixiv.net/tags/%s/artworks)' % (
-                        tagNameReplaced, tagNameReplaced)
+                        tagNameReplaced, replaceChar(tag.name))
                 # format user
                 userCaption = '[%s](https://www.pixiv.net/users/%s)' % (
                     replaceChar(detail.user.name), detail.user.id)
