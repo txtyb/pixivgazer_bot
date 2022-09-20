@@ -53,6 +53,8 @@ class Image:
         if self.overten:
             self.imgUrls = self.imgUrls[0:10]
 
+        totalSize = 0
+
         fileNames = list()
         for url in self.imgUrls:
             path = relativePathFix(os.path.join('..', 'tmp'))
@@ -77,6 +79,10 @@ class Image:
             if size > 10:
                 logging.info('Compressing...... %d is %.1fMB, '%(self.id, size))
                 compressUderSize(os.path.join(path, name), 10)
+            totalSize += os.path.getsize(os.path.join(path, name))/(1024*1024.0)
+            # if the total size of media group > 50 MB(hit telegram api's size limit), than no more pics 
+            if totalSize > 50:
+                break
             fileNames.append(name)
 
         # return downloaded object
