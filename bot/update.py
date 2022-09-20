@@ -132,6 +132,11 @@ class ObjectToSend():
             elif statusCode == 400:
                 logging.error('Bad request!')
                 break
+            # don't retry client errors
+            elif str(statusCode)[0] == 4:
+                logging.error('Client error!')
+                status = True
+                break
             flag += 1
             if (flag <= retryTime) and (status is False):
                 sleep(1)
