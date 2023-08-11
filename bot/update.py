@@ -29,6 +29,7 @@ class Image:
         self.id = int()
         self.height = int()
         self.width = int()
+        self.filtered = bool
     
 
     def download(self):
@@ -510,6 +511,7 @@ class Update:
                 image.id = detail.id
                 image.width = detail.width
                 image.height = detail.height
+                image.filtered = False
 
                 single = bool()
                 if count == 1:
@@ -538,6 +540,15 @@ class Update:
                 # format tags
                 tagsCaption = str()
                 for tag in detail.tags:
+                    if c.filtered_tags:
+                        # filtering tags
+                        if tag in c.filtered_tags:
+                            image.filtered = True
+                            # add id to updatedDump in order to mark it as sent
+                            self.updatedDump.append(image.id)
+                            block_msg = f'{image.title} is filtered. reason: {tag}, id: {image.id}, artist: {replaceChar(detail.user.name)}.'
+                            logging.INFO(block_msg)
+                            break
                     # add translated tag names if exist
                     tagName = '%s%s' % (tag.name, ('「%s」' % tag.translated_name) if tag.translated_name else '')
                     tagNameReplaced = replaceChar(tagName)
@@ -560,6 +571,9 @@ class Update:
             sendList = list()
             logging.info('Downloading......')
             for pic in self.picsList:
+                # if filtered, skip
+                if pic.filtered:
+                    continue
                 # download
                 obj = pic.download()
                 if obj[0] == 'Photo' or obj[0] == 'Ugoira':

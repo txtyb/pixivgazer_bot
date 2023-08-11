@@ -8,6 +8,7 @@ class Config:
         self.pixiv_refensh_token = ''
         self.last_updated = dict()
         self.lastUpdatedPath = str()
+        self.filtered_tags = []
 
 
     # load config
@@ -19,6 +20,10 @@ class Config:
             self.chat_id = yaml_result['tg_chat_id']
             self.tg_bot_token = yaml_result['tg_bot_token']
             self.pixiv_refensh_token = yaml_result['pixiv_refresh_token']
+            if yaml_result.get('filtered_tags'):
+                self.filtered_tags = yaml_result['filtered_tags']
+            else:
+                self.filtered_tags = None
         # load last updated id list
         # if '.last_updated.yaml' not exist, give an empty init
         if os.path.exists(lastUpdatedPath) == False:
