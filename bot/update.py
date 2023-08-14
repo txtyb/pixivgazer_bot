@@ -463,6 +463,8 @@ class Update:
 
             # test
             def test():
+                item = UpdateItem(105241239, '2022-06-06T01:09:03+09:00', 'illust')
+                needUpdate.append(item)
                 item = UpdateItem(91173737, '2022-06-06T01:09:03+09:00', 'ugoira')
                 needUpdate.append(item)
                 item = UpdateItem(98536884, '2022-06-06T02:09:03+09:00', 'ugoira')
@@ -542,12 +544,12 @@ class Update:
                 for tag in detail.tags:
                     if c.filtered_tags:
                         # filtering tags
-                        if tag in c.filtered_tags:
+                        if tag['name'] in c.filtered_tags or tag['translated_name'] in c.filtered_tags:
                             image.filtered = True
                             # add id to updatedDump in order to mark it as sent
                             self.updatedDump.append(image.id)
-                            block_msg = f'{image.title} is filtered. reason: {tag}, id: {image.id}, artist: {replaceChar(detail.user.name)}.'
-                            logging.INFO(block_msg)
+                            block_msg = f'{image.title} is filtered. reason: {tag["translated_name"] if tag["translated_name"] else tag["name"]}, id: {image.id}, artist: {replaceChar(detail.user.name)}.'
+                            logging.info(block_msg)
                             break
                     # add translated tag names if exist
                     tagName = '%s%s' % (tag.name, ('「%s」' % tag.translated_name) if tag.translated_name else '')
