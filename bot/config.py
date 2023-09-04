@@ -24,6 +24,7 @@ class Config:
                 self.filtered_tags = yaml_result['filtered_tags']
             else:
                 self.filtered_tags = None
+            self.admin_id = yaml_result.get('admin_id')
         # load last updated id list
         # if '.last_updated.yaml' not exist, give an empty init
         if os.path.exists(lastUpdatedPath) == False:

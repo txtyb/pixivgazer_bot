@@ -480,6 +480,11 @@ class Update:
             self.updateList = needUpdate
 
 
+        def send_admin_msg(msg:Msg):
+            status:bool = msg.sendAndRetry(c.admin_id)
+            return status
+
+
         def genPicsList():
             # picsList contains a bunch of Image instances
             picsList = list()
@@ -550,6 +555,10 @@ class Update:
                             self.updatedDump.append(image.id)
                             block_msg = f'{image.title} is filtered. reason: {tag["translated_name"] if tag["translated_name"] else tag["name"]}, id: {image.id}, artist: {replaceChar(detail.user.name)}.'
                             logging.info(block_msg)
+                            # send block msg to admin
+                            if c.admin_id:
+                                msg = Msg(replaceChar(block_msg))
+                                status = send_admin_msg(msg)
                             break
                     # add translated tag names if exist
                     tagName = '%s%s' % (tag.name, ('「%s」' % tag.translated_name) if tag.translated_name else '')
