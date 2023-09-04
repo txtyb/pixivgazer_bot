@@ -151,7 +151,11 @@ class ObjectToSend():
         if status:
             return True
         else:
-            logging.error('Sending failed after 2 retrys......title: %s id: %d' % (self.title, self.id))
+            # don't log error when send Msg
+            if type(self) == Msg:
+                pass
+            else:
+                logging.error('Sending failed after 2 retrys......title: %s id: %d' % (self.title, self.id))
             return False
 
 
