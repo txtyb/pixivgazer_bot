@@ -69,7 +69,7 @@ class Image:
             ratio = imWidth/imHeight
             # resize
             if imWidth+imHeight > 10000:
-                logging.info('Resizing......')
+                logging.info(f'Resizing...... {name} is {imWidth}*{imHeight}. ')
                 newHeight = 10000/(1+ratio)
                 newWidth = ratio*newHeight
                 newHeight, newWidth = int(newHeight), int(newWidth)
@@ -78,7 +78,7 @@ class Image:
             # size in MB
             size = os.path.getsize(os.path.join(path, name))/(1024*1024.0)
             if size > 10:
-                logging.info('Compressing...... %d is %.1fMB, '%(self.id, size))
+                logging.info(f'Compressing...... {name} is {round(size)}MB. ')
                 compressUderSize(os.path.join(path, name), 10)
             totalSize += os.path.getsize(os.path.join(path, name))/(1024*1024.0)
             # if the total size of media group > 50 MB(hit telegram api's size limit), than no more pics 
