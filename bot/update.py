@@ -34,7 +34,7 @@ class Image:
 
     def download(self):
         def compressUderSize(path, size):
-            qual = 95
+            qual = 85
             currentSize = os.path.getsize(path)/(1024*1024.0)
             while currentSize > size:
                 if qual == 0:
@@ -45,9 +45,16 @@ class Image:
                 # if the original pic is png, then convert it to jpeg in order to compress
                 if path.split('.')[-1] == 'png':
                     im = im.convert('RGB')
-                im.save(path, 'JPEG', quality=qual)
+                im.save(path, 'WebP', quality=qual)
                 currentSize = os.path.getsize(path)/(1024*1024.0)
                 qual -= 5
+        
+
+        def convertToWebp(path):
+            im = pillowImage.open(path)
+            path2 = path.rsplit('.', 1)[0] + '.webp'
+            im.save(path2, 'WebP', quality=90)
+            return path2
 
 
         # only download 10 pics if overten
@@ -64,6 +71,12 @@ class Image:
             # download pic
             print('%d ' % self.id, end='')
             status = api.download(url, path=path, name=name)
+            # convert to WebP, quality=90
+            path2 = convertToWebp(os.path.join(path, name))
+            # delete original pic
+            os.remove(os.path.join(path, name))
+            # use new file name
+            name = path2.rsplit('/', 1)[-1]
             im = pillowImage.open(os.path.join(path, name))
             (imWidth, imHeight) = im.size
             ratio = imWidth/imHeight
@@ -74,7 +87,7 @@ class Image:
                 newWidth = ratio*newHeight
                 newHeight, newWidth = int(newHeight), int(newWidth)
                 out = im.resize((newWidth, newHeight))
-                out.save(os.path.join(path, name), quality=95)
+                out.save(os.path.join(path, name), quality=90)
             # size in MB
             size = os.path.getsize(os.path.join(path, name))/(1024*1024.0)
             if size > 10:
